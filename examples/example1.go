@@ -1,19 +1,26 @@
 package main
 
 import (
-	"log"
-
+	"context"
 	"github.com/shomali11/slacker"
+	"log"
 )
 
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("ping", "Ping!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		response.Reply("pong")
-	})
+	definition := &slacker.CommandDefinition{
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("pong")
+		},
+	}
 
-	err := bot.Listen()
+	bot.Command("ping", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

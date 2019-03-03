@@ -9,14 +9,6 @@ Command evaluator and parser
 * Provides default values for missing parameters
 * Supports String, Integer, Float and Boolean parameters
 
-## Usage
-
-Using `govendor` [github.com/kardianos/govendor](https://github.com/kardianos/govendor):
-
-```
-govendor fetch github.com/shomali11/commander
-```
-
 ## Dependencies
 
 * `proper` [github.com/shomali11/proper](https://github.com/shomali11/proper)
@@ -37,9 +29,9 @@ import (
 )
 
 func main() {
-	properties, isMatch := commander.NewCommand("echo <word>").Match("echo hey")
+	properties, isMatch := commander.NewCommand("echo <text>").Match("echo hey")
 	fmt.Println(isMatch)                             // true
-	fmt.Println(properties.StringParam("word", ""))  // hey
+	fmt.Println(properties.StringParam("text", ""))  // hey
 
 	properties, isMatch = commander.NewCommand("repeat <word> <number>").Match("repeat hey 5")
 	fmt.Println(isMatch)                              // true
@@ -66,7 +58,7 @@ import (
 )
 
 func main() {
-	tokens := commander.NewCommand("echo <word>").Tokenize()
+	tokens := commander.NewCommand("echo <text>").Tokenize()
 	for _, token := range tokens {
 		fmt.Println(token)
 	}
@@ -76,5 +68,5 @@ func main() {
 Output:
 ```
 &{echo false}
-&{word true}
+&{text true}
 ```

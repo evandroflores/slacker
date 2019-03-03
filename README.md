@@ -9,17 +9,10 @@ Built on top of the Slack API [github.com/nlopes/slack](https://github.com/nlope
 * Simple parsing of String, Integer, Float and Boolean parameters
 * Contains support for `context.Context`
 * Built-in `help` command
+* Supports authorization
 * Bot responds to mentions and direct messages
 * Handlers run concurrently via goroutines
 * Full access to the Slack API [github.com/nlopes/slack](https://github.com/nlopes/slack)
-
-## Usage
-
-Using `govendor` [github.com/kardianos/govendor](https://github.com/kardianos/govendor):
-
-```
-govendor fetch github.com/shomali11/slacker
-```
 
 ## Dependencies
 
@@ -36,6 +29,7 @@ Defining a command using slacker
 package main
 
 import (
+	"context"
 	"github.com/shomali11/slacker"
 	"log"
 )
@@ -43,11 +37,18 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("ping", "Ping!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		response.Reply("pong")
-	})
+	definition := &slacker.CommandDefinition{
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("pong")
+		},
+	}
 
-	err := bot.Listen()
+	bot.Command("ping", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,12 +57,13 @@ func main() {
 
 ## Example 2
 
-Adding handlers to when the bot is connected, encounters an error and a default for when none of the commands match
+Defining a command with an optional description and example
 
 ```go
 package main
 
 import (
+	"context"
 	"github.com/shomali11/slacker"
 	"log"
 )
@@ -69,23 +71,20 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Init(func() {
-		log.Println("Connected!")
-	})
+	definition := &slacker.CommandDefinition{
+		Description: "Ping!",
+		Example:     "ping",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("pong")
+		},
+	}
 
-	bot.Err(func(err string) {
-		log.Println(err)
-	})
+	bot.Command("ping", definition)
 
-	bot.Default(func(request *slacker.Request, response slacker.ResponseWriter) {
-		response.Reply("Say what?")
-	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	bot.Help(func(request *slacker.Request, response slacker.ResponseWriter) {
-		response.Reply("Your own help function...")
-	})
-
-	err := bot.Listen()
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,6 +99,7 @@ Defining a command with a parameter
 package main
 
 import (
+	"context"
 	"github.com/shomali11/slacker"
 	"log"
 )
@@ -107,12 +107,21 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("echo <word>", "Echo a word!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		word := request.Param("word")
-		response.Reply(word)
-	})
+	definition := &slacker.CommandDefinition{
+		Description: "Echo a word!",
+		Example:     "echo hello",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			word := request.Param("word")
+			response.Reply(word)
+		},
+	}
 
-	err := bot.Listen()
+	bot.Command("echo <word>", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -128,6 +137,7 @@ _(The second parameter is the default value in case no parameter was passed or c
 package main
 
 import (
+	"context"
 	"github.com/shomali11/slacker"
 	"log"
 )
@@ -135,15 +145,24 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("repeat <word> <number>", "Repeat a word a number of times!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		word := request.StringParam("word", "Hello!")
-		number := request.IntegerParam("number", 1)
-		for i := 0; i < number; i++ {
-			response.Reply(word)
-		}
-	})
+	definition := &slacker.CommandDefinition{
+		Description: "Repeat a word a number of times!",
+		Example:     "repeat hello 10",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			word := request.StringParam("word", "Hello!")
+			number := request.IntegerParam("number", 1)
+			for i := 0; i < number; i++ {
+				response.Reply(word)
+			}
+		},
+	}
 
-	err := bot.Listen()
+	bot.Command("repeat <word> <number>", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -158,6 +177,7 @@ Send an error message to the Slack channel
 package main
 
 import (
+	"context"
 	"errors"
 	"github.com/shomali11/slacker"
 	"log"
@@ -166,11 +186,19 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("test", "Tests something", func(request *slacker.Request, response slacker.ResponseWriter) {
-		response.ReportError(errors.New("Oops!"))
-	})
+	definition := &slacker.CommandDefinition{
+		Description: "Tests errors",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.ReportError(errors.New("Oops!"))
+		},
+	}
 
-	err := bot.Listen()
+	bot.Command("test", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -185,6 +213,7 @@ Send a "Typing" indicator
 package main
 
 import (
+	"context"
 	"github.com/shomali11/slacker"
 	"log"
 	"time"
@@ -193,15 +222,23 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("time", "Server time!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		response.Typing()
+	definition := &slacker.CommandDefinition{
+		Description: "Server time!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Typing()
 
-		time.Sleep(time.Second)
-		
-		response.Reply(time.Now().Format(time.RFC1123))
-	})
+			time.Sleep(time.Second)
 
-	err := bot.Listen()
+			response.Reply(time.Now().Format(time.RFC1123))
+		},
+	}
+
+	bot.Command("time", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -210,13 +247,14 @@ func main() {
 
 ## Example 7
 
-Showcasing the ability to access the [github.com/nlopes/slack](https://github.com/nlopes/slack) API. 
-_In this example, we upload a file using the Slack API._
+Showcasing the ability to access the [github.com/nlopes/slack](https://github.com/nlopes/slack) API and the Real-Time Messaging Protocol.
+_In this example, we are sending a message using RTM and uploading a file using the Slack API._
 
 ```go
 package main
 
 import (
+	"context"
 	"github.com/nlopes/slack"
 	"github.com/shomali11/slacker"
 	"log"
@@ -225,13 +263,26 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("upload <word>", "Upload a word!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		word := request.Param("word")
-		channel := request.Event.Channel
-		bot.Client.UploadFile(slack.FileUploadParameters{Content: word, Channels: []string{channel}})
-	})
+	definition := &slacker.CommandDefinition{
+		Description: "Upload a word!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			word := request.Param("word")
+			channel := request.Event().Channel
 
-	err := bot.Listen()
+			rtm := response.RTM()
+			client := response.Client()
+
+			rtm.SendMessage(rtm.NewOutgoingMessage("Uploading file ...", channel))
+			client.UploadFile(slack.FileUploadParameters{Content: word, Channels: []string{channel}})
+		},
+	}
+
+	bot.Command("upload <word>", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -256,22 +307,296 @@ import (
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("process", "Process!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		timedContext, cancel := context.WithTimeout(request.Context, time.Second)
-		defer cancel()
+	definition := &slacker.CommandDefinition{
+		Description: "Process!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			timedContext, cancel := context.WithTimeout(request.Context(), time.Second)
+			defer cancel()
 
-		select {
-		case <-timedContext.Done():
-			response.ReportError(errors.New("Timed out"))
-		case <-time.After(time.Minute):
-			response.Reply("Processing done!")
-		}
-	})
+			select {
+			case <-timedContext.Done():
+				response.ReportError(errors.New("timed out"))
+			case <-time.After(time.Minute):
+				response.Reply("Processing done!")
+			}
+		},
+	}
 
-	err := bot.Listen()
+	bot.Command("process", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+## Example 9
+
+Showcasing the ability to add attachments to a `Reply`
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	"github.com/nlopes/slack"
+	"github.com/shomali11/slacker"
+)
+
+func main() {
+	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
+
+	definition := &slacker.CommandDefinition{
+		Description: "Echo a word!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			word := request.Param("word")
+
+			attachments := []slack.Attachment{}
+			attachments = append(attachments, slack.Attachment{
+				Color:      "red",
+				AuthorName: "Raed Shomali",
+				Title:      "Attachment Title",
+				Text:       "Attachment Text",
+			})
+
+			response.Reply(word, slacker.WithAttachments(attachments))
+		},
+	}
+
+	bot.Command("echo <word>", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+## Example 10
+
+Showcasing the ability to create custom responses via `CustomResponse`
+
+```go
+package main
+
+import (
+	"log"
+
+	"context"
+	"errors"
+	"fmt"
+	"github.com/nlopes/slack"
+	"github.com/shomali11/slacker"
+)
+
+const (
+	errorFormat = "> Custom Error: _%s_"
+)
+
+func main() {
+	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
+
+	bot.CustomResponse(NewCustomResponseWriter)
+
+	definition := &slacker.CommandDefinition{
+		Description: "Custom!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("custom")
+			response.ReportError(errors.New("oops"))
+		},
+	}
+
+	bot.Command("custom", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+// NewCustomResponseWriter creates a new ResponseWriter structure
+func NewCustomResponseWriter(channel string, client *slack.Client, rtm *slack.RTM) slacker.ResponseWriter {
+	return &MyCustomResponseWriter{channel: channel, client: client, rtm: rtm}
+}
+
+// MyCustomResponseWriter a custom response writer
+type MyCustomResponseWriter struct {
+	channel string
+	client  *slack.Client
+	rtm     *slack.RTM
+}
+
+// ReportError sends back a formatted error message to the channel where we received the event from
+func (r *MyCustomResponseWriter) ReportError(err error) {
+	r.rtm.SendMessage(r.rtm.NewOutgoingMessage(fmt.Sprintf(errorFormat, err.Error()), r.channel))
+}
+
+// Typing send a typing indicator
+func (r *MyCustomResponseWriter) Typing() {
+	r.rtm.SendMessage(r.rtm.NewTypingMessage(r.channel))
+}
+
+// Reply send a attachments to the current channel with a message
+func (r *MyCustomResponseWriter) Reply(message string, options ...slacker.ReplyOption) {
+	r.rtm.SendMessage(r.rtm.NewOutgoingMessage(message, r.channel))
+}
+
+// RTM returns the RTM client
+func (r *MyCustomResponseWriter) RTM() *slack.RTM {
+	return r.rtm
+}
+
+// Client returns the slack client
+func (r *MyCustomResponseWriter) Client() *slack.Client {
+	return r.client
+}
+```
+
+## Example 11
+
+Showcasing the ability to toggle the slack Debug option via `WithDebug`
+
+```go
+package main
+
+import (
+	"context"
+	"github.com/shomali11/slacker"
+	"log"
+)
+
+func main() {
+	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>", slacker.WithDebug(true))
+
+	definition := &slacker.CommandDefinition{
+		Description: "Ping!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("pong")
+		},
+	}
+
+	bot.Command("ping", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+## Example 12
+
+Defining a command that can only be executed by authorized users
+
+```go
+package main
+
+import (
+	"context"
+	"github.com/shomali11/slacker"
+	"log"
+)
+
+func main() {
+	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
+
+	authorizedUsers := []string{"<USER ID>"}
+
+	authorizedDefinition := &slacker.CommandDefinition{
+		Description: "Very secret stuff",
+		AuthorizationFunc: func(request slacker.Request) bool {
+			return contains(authorizedUsers, request.Event().User)
+		},
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("You are authorized!")
+		},
+	}
+
+	bot.Command("secret", authorizedDefinition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func contains(list []string, element string) bool {
+	for _, value := range list {
+		if value == element {
+			return true
+		}
+	}
+	return false
+}
+```
+
+## Example 13
+
+Adding handlers to when the bot is connected, encounters an error and a default for when none of the commands match
+
+```go
+package main
+
+import (
+	"log"
+
+	"context"
+	"fmt"
+	"github.com/shomali11/slacker"
+)
+
+func main() {
+	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
+
+	bot.Init(func() {
+		log.Println("Connected!")
+	})
+
+	bot.Err(func(err string) {
+		log.Println(err)
+	})
+
+	bot.DefaultCommand(func(request slacker.Request, response slacker.ResponseWriter) {
+		response.Reply("Say what?")
+	})
+
+	bot.DefaultEvent(func(event interface{}) {
+		fmt.Println(event)
+	})
+
+	definition := &slacker.CommandDefinition{
+		Description: "help!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("Your own help function...")
+		},
+	}
+
+	bot.Help(definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 ```

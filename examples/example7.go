@@ -1,22 +1,35 @@
 package main
 
 import (
-	"log"
-
+	"context"
 	"github.com/nlopes/slack"
 	"github.com/shomali11/slacker"
+	"log"
 )
 
 func main() {
 	bot := slacker.NewClient("<YOUR SLACK BOT TOKEN>")
 
-	bot.Command("upload <word>", "Upload a word!", func(request *slacker.Request, response slacker.ResponseWriter) {
-		word := request.Param("word")
-		channel := request.Event.Channel
-		bot.Client.UploadFile(slack.FileUploadParameters{Content: word, Channels: []string{channel}})
-	})
+	definition := &slacker.CommandDefinition{
+		Description: "Upload a word!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			word := request.Param("word")
+			channel := request.Event().Channel
 
-	err := bot.Listen()
+			rtm := response.RTM()
+			client := response.Client()
+
+			rtm.SendMessage(rtm.NewOutgoingMessage("Uploading file ...", channel))
+			client.UploadFile(slack.FileUploadParameters{Content: word, Channels: []string{channel}})
+		},
+	}
+
+	bot.Command("upload <word>", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

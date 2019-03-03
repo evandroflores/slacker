@@ -12,33 +12,53 @@ const (
 
 // A ResponseWriter interface is used to respond to an event
 type ResponseWriter interface {
-	Reply(text string)
+	Reply(text string, options ...ReplyOption)
 	ReportError(err error)
 	Typing()
+	RTM() *slack.RTM
+	Client() *slack.Client
 }
 
 // NewResponse creates a new response structure
-func NewResponse(channel string, rtm *slack.RTM) *Response {
-	return &Response{channel: channel, rtm: rtm}
+func NewResponse(channel string, client *slack.Client, rtm *slack.RTM) ResponseWriter {
+	return &response{channel: channel, client: client, rtm: rtm}
 }
 
-// Response contains the channel and Real Time Messaging library
-type Response struct {
+type response struct {
 	channel string
+	client  *slack.Client
 	rtm     *slack.RTM
 }
 
-// Reply send a message back to the channel where we received the event from
-func (r *Response) Reply(text string) {
-	r.rtm.SendMessage(r.rtm.NewOutgoingMessage(text, r.channel))
-}
-
 // ReportError sends back a formatted error message to the channel where we received the event from
-func (r *Response) ReportError(err error) {
+func (r *response) ReportError(err error) {
 	r.rtm.SendMessage(r.rtm.NewOutgoingMessage(fmt.Sprintf(errorFormat, err.Error()), r.channel))
 }
 
 // Typing send a typing indicator
-func (r *Response) Typing() {
+func (r *response) Typing() {
 	r.rtm.SendMessage(r.rtm.NewTypingMessage(r.channel))
+}
+
+// Reply send a attachments to the current channel with a message
+func (r *response) Reply(message string, options ...ReplyOption) {
+	defaults := newReplyDefaults(options...)
+
+	r.rtm.PostMessage(
+		r.channel,
+		slack.MsgOptionText(message, false),
+		slack.MsgOptionUser(r.rtm.GetInfo().User.ID),
+		slack.MsgOptionAsUser(true),
+		slack.MsgOptionAttachments(defaults.Attachments...),
+	)
+}
+
+// RTM returns the RTM client
+func (r *response) RTM() *slack.RTM {
+	return r.rtm
+}
+
+// Client returns the slack client
+func (r *response) Client() *slack.Client {
+	return r.client
 }
